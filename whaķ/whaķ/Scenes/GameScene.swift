@@ -49,7 +49,8 @@ extension String {
 
 class GameScene: SKScene
 {
-    var updateRate = 0.002
+    var updateRate = 0.002*5
+    var stepSize = CGFloat(5)
     var timer: Timer?
     var touchLocation = CGPoint()
     
@@ -532,10 +533,10 @@ class GameScene: SKScene
     
     @objc func shoot()
     {
-        bullet = SKSpriteNode(imageNamed: "crossBolt")
-        bullet.size = CGSize(width: frame.size.width/16, height: frame.size.width/16)
+        bullet = SKSpriteNode(imageNamed: "bullet")
+        bullet.size = CGSize(width: frame.size.width/32, height: frame.size.width/16)
         bullet.position = CGPoint(x: circle.position.x, y: circle.position.y)
-        bullet.zRotation = circle.zRotation + CGFloat.pi * -3/4
+        bullet.zRotation = circle.zRotation
         addChild(bullet)
         bulletArray.insert(bullet, at: 0)
         bulletDirectionArray.insert(currentDirection, at: 0)
@@ -548,7 +549,7 @@ class GameScene: SKScene
             {
                 if(bulletDirectionArray[i] == "right")
                 {
-                    bulletArray[i].position.x += 1
+                    bulletArray[i].position.x += stepSize
                     if(bulletArray[i].position.x > frame.size.width + frame.size.width/16)
                     {
                         bulletArray[i].removeFromParent()
@@ -559,7 +560,7 @@ class GameScene: SKScene
                 }
                 if(bulletDirectionArray[i] == "left")
                 {
-                    bulletArray[i].position.x -= 1
+                    bulletArray[i].position.x -= stepSize
                     if(bulletArray[i].position.x < 0 - frame.size.width/16)
                     {
                         bulletArray[i].removeFromParent()
@@ -570,7 +571,7 @@ class GameScene: SKScene
                 }
                 if(bulletDirectionArray[i] == "up")
                 {
-                    bulletArray[i].position.y += 1
+                    bulletArray[i].position.y += stepSize
                     if(bulletArray[i].position.y > frame.size.height + frame.size.height/16)
                     {
                         bulletArray[i].removeFromParent()
@@ -581,7 +582,7 @@ class GameScene: SKScene
                 }
                 if(bulletDirectionArray[i] == "down")
                 {
-                    bulletArray[i].position.y -= 1
+                    bulletArray[i].position.y -= stepSize
                     if(bulletArray[i].position.y < 0 - frame.size.height/16)
                     {
                         bulletArray[i].removeFromParent()
@@ -706,163 +707,171 @@ class GameScene: SKScene
         }
         if(goingUp)
         {
-            var collisionDetected = false
             recentlyBumped = false
-            var length = collisionArray.count-1
+            let length = collisionArray.count-1
             
+            // Move the circle
+            circle.position.y += stepSize
+            // If there are any objects to check for
             if(!collisionArray.isEmpty)
             {
                 for var i in 0...length
                 {
-                    if(!collisionDetected)
+                    // If the new position overlaps
+                    if(circle.intersects(collisionArray[i]))
                     {
-                        if((Int(collisionArray[i].frame.minY) == Int(circle.frame.maxY)) && circle.frame.maxX > collisionArray[i].frame.minX + 1 && circle.frame.minX < collisionArray[i].frame.maxX - 1)
+                        // Set current encounter
+                        currentEncounter = collisionArray[i].name!
+                        // If it's food eat it
+                        if(collisionArray[i].name == "food")
                         {
-                            //print("Collision detected. Color: \(collisionArray[i].color)")
-                            currentEncounter = collisionArray[i].name!
-                            
-                            if(collisionArray[i].name == "food")
-                            {
-                                collisionArray[i].removeFromParent()
-                                collisionArray[i].removeAllActions()
-                                collisionArray.remove(at: i)
-                                notificationBox.text = "NOM NOM NOM..."
-                                increaseHP()
-                                break
-                            }
-                            else
-                            {
-                                collisionDetected = true
-                                recentlyBumped = true
-                            }
+                            collisionArray[i].removeFromParent()
+                            collisionArray[i].removeAllActions()
+                            collisionArray.remove(at: i)
+                            notificationBox.text = "NOM NOM NOM..."
+                            increaseHP()
+                            break
+                        }
+                        // Yes recently bumped
+                        recentlyBumped = true
+                        // Move back
+                        while(circle.intersects(collisionArray[i]))
+                        {
+                            circle.position.y -= 1
                         }
                     }
                 }
-            }
-            if(!collisionDetected && circle.position.y + circle.size.height/2 < frame.height)
-            {
-                circle.position.y += 1
             }
         }
         if(goingDown)
         {
-            var collisionDetected = false
             recentlyBumped = false
-            var length = collisionArray.count-1
+            let length = collisionArray.count-1
             
+            // Move the circle
+            circle.position.y -= stepSize
+            // If there are any objects to check for
             if(!collisionArray.isEmpty)
             {
-                for i in 0...length
+                for var i in 0...length
                 {
-                    if(!collisionDetected)
+                    // If the new position overlaps
+                    if(circle.intersects(collisionArray[i]))
                     {
-                        if((Int(collisionArray[i].frame.maxY) == Int(circle.frame.minY)) && circle.frame.maxX > collisionArray[i].frame.minX + 1 && circle.frame.minX < collisionArray[i].frame.maxX - 1)
+                        // Set current encounter
+                        currentEncounter = collisionArray[i].name!
+                        // If it's food eat it
+                        if(collisionArray[i].name == "food")
                         {
-                            //print("Collision detected. Color: \(collisionArray[i].color)")
-                            currentEncounter = collisionArray[i].name!
-                            
-                            if(collisionArray[i].name == "food")
-                            {
-                                collisionArray[i].removeFromParent()
-                                collisionArray[i].removeAllActions()
-                                collisionArray.remove(at: i)
-                                notificationBox.text = "NOM NOM NOM..."
-                                increaseHP()
-                                break
-                            }
-                            else
-                            {
-                                collisionDetected = true
-                                recentlyBumped = true
-                            }
+                            collisionArray[i].removeFromParent()
+                            collisionArray[i].removeAllActions()
+                            collisionArray.remove(at: i)
+                            notificationBox.text = "NOM NOM NOM..."
+                            increaseHP()
+                            break
+                        }
+                        // Yes recently bumped
+                        recentlyBumped = true
+                        // Move back
+                        while(circle.intersects(collisionArray[i]))
+                        {
+                            circle.position.y += 1
                         }
                     }
                 }
-            }
-            if(!collisionDetected && circle.position.y - circle.size.height/2 > 0)
-            {
-                circle.position.y -= 1
             }
         }
         if(goingLeft)
         {
-            var collisionDetected = false
             recentlyBumped = false
-            var length = collisionArray.count-1
+            let length = collisionArray.count-1
             
+            // Move the circle
+            circle.position.x -= stepSize
+            // If there are any objects to check for
             if(!collisionArray.isEmpty)
             {
-                for i in 0...length
+                for var i in 0...length
                 {
-                    if(!collisionDetected)
+                    // If the new position overlaps
+                    if(circle.intersects(collisionArray[i]))
                     {
-                        if((Int(collisionArray[i].frame.maxX) == Int(circle.frame.minX)) && circle.frame.maxY > collisionArray[i].frame.minY + 1 && circle.frame.minY < collisionArray[i].frame.maxY - 1)
+                        // Set current encounter
+                        currentEncounter = collisionArray[i].name!
+                        // If it's food eat it
+                        if(collisionArray[i].name == "food")
                         {
-                            //print("Collision detected. Color: \(collisionArray[i].color)")
-                            currentEncounter = collisionArray[i].name!
-                            
-                            if(collisionArray[i].name == "food")
-                            {
-                                collisionArray[i].removeFromParent()
-                                collisionArray[i].removeAllActions()
-                                collisionArray.remove(at: i)
-                                notificationBox.text = "NOM NOM NOM..."
-                                increaseHP()
-                                break
-                            }
-                            else
-                            {
-                                collisionDetected = true
-                                recentlyBumped = true
-                            }
+                            collisionArray[i].removeFromParent()
+                            collisionArray[i].removeAllActions()
+                            collisionArray.remove(at: i)
+                            notificationBox.text = "NOM NOM NOM..."
+                            increaseHP()
+                            break
+                        }
+                        // Yes recently bumped
+                        recentlyBumped = true
+                        // Move back
+                        while(circle.intersects(collisionArray[i]))
+                        {
+                            circle.position.x += 1
                         }
                     }
                 }
-            }
-            if(!collisionDetected && circle.position.x - circle.size.width/2 > 0)
-            {
-                circle.position.x -= 1
             }
         }
         if(goingRight)
         {
-            var collisionDetected = false
             recentlyBumped = false
-            var length = collisionArray.count-1
+            let length = collisionArray.count-1
             
+            // Move the circle
+            circle.position.x += stepSize
+            // If there are any objects to check for
             if(!collisionArray.isEmpty)
             {
-                for i in 0...length
+                for var i in 0...length
                 {
-                    if(!collisionDetected)
+                    // If the new position overlaps
+                    if(circle.intersects(collisionArray[i]))
                     {
-                        if((Int(collisionArray[i].frame.minX) == Int(circle.frame.maxX)) && circle.frame.maxY > collisionArray[i].frame.minY + 1 && circle.frame.minY < collisionArray[i].frame.maxY - 1)
+                        // Set current encounter
+                        currentEncounter = collisionArray[i].name!
+                        // If it's food eat it
+                        if(collisionArray[i].name == "food")
                         {
-                            //print("Collision detected. Color: \(collisionArray[i].color)")
-                            currentEncounter = collisionArray[i].name!
-                            
-                            if(collisionArray[i].name == "food")
-                            {
-                                collisionArray[i].removeFromParent()
-                                collisionArray[i].removeAllActions()
-                                collisionArray.remove(at: i)
-                                notificationBox.text = "NOM NOM NOM..."
-                                increaseHP()
-                                break
-                            }
-                            else
-                            {
-                                collisionDetected = true
-                                recentlyBumped = true
-                            }
+                            collisionArray[i].removeFromParent()
+                            collisionArray[i].removeAllActions()
+                            collisionArray.remove(at: i)
+                            notificationBox.text = "NOM NOM NOM..."
+                            increaseHP()
+                            break
+                        }
+                        // Yes recently bumped
+                        recentlyBumped = true
+                        // Move back
+                        while(circle.intersects(collisionArray[i]))
+                        {
+                            circle.position.x -= 1
                         }
                     }
                 }
             }
-            if(!collisionDetected && circle.position.x + circle.size.width/2 < frame.width)
-            {
-                circle.position.x += 1
-            }
+        }
+        if(circle.position.x > frame.width - circle.frame.width/2)
+        {
+            circle.position.x = frame.width - circle.frame.width/2
+        }
+        if(circle.position.x < 0 + circle.frame.width/2)
+        {
+            circle.position.x = 0 + circle.frame.width/2
+        }
+        if(circle.position.y > frame.height - circle.frame.height/2)
+        {
+            circle.position.y = frame.height - circle.frame.height/2
+        }
+        if(circle.position.y < 0 + circle.frame.height/2)
+        {
+            circle.position.y = 0 + circle.frame.height/2
         }
     }
     
