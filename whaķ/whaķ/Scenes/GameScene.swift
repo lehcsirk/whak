@@ -49,11 +49,11 @@ extension String {
 
 class GameScene: SKScene
 {
-    
+    var updateRate = 0.002
     var timer: Timer?
     var touchLocation = CGPoint()
     
-    var currentDirection = "nil"
+    var currentDirection = "up"
     var currentEncounter = "nil"
     var recentlyBumped = false
     
@@ -64,6 +64,14 @@ class GameScene: SKScene
     
     // Character
     var circle: SKSpriteNode!
+    var hpBar = UILabel()
+    
+    // Bullet
+    var bulletTimer = Timer()
+    var bullet: SKSpriteNode!
+    var bulletArray: [SKSpriteNode] = [SKSpriteNode]()
+    var bulletDirectionArray: [String] = [String]()
+    
     
     // Notification Box
     var notifyBorder: SKSpriteNode!
@@ -205,11 +213,11 @@ class GameScene: SKScene
             
             let size = 16//Int.random(in: 6 ..< 16)
             
-            let myWall = SKSpriteNode(imageNamed: "Square")
+            let myWall = SKSpriteNode(imageNamed: "mineGrass")
             myWall.name = String("wall")
             myWall.size = CGSize(width: Int(frame.size.width)*10/size, height: Int(frame.size.width)/size)
             myWall.position = CGPoint(x: xCoord, y: yCoord)
-            myWall.drawBorder(color: .brown, width: 1)
+            //myWall.drawBorder(color: .brown, width: 1)
             addChild(myWall)
             collisionArray.insert(myWall, at: 0)
         }
@@ -223,11 +231,11 @@ class GameScene: SKScene
             
             let size = 16//Int.random(in: 6 ..< 16)
             
-            let myEnemy = SKSpriteNode(imageNamed: "Square")
+            let myEnemy = SKSpriteNode(imageNamed: "miniSentry")
             myEnemy.name = String("enemy")
             myEnemy.size = CGSize(width: Int(frame.size.width)/size, height: Int(frame.size.width)/size)
             myEnemy.position = CGPoint(x: xCoord, y: yCoord)
-            myEnemy.drawBorder(color: .red, width: 1)
+            //myEnemy.drawBorder(color: .red, width: 1)
             addChild(myEnemy)
             collisionArray.insert(myEnemy, at: 0)
         }
@@ -241,11 +249,11 @@ class GameScene: SKScene
             let yCoord = Int.random(in: Int(frame.height*3/7) ..< Int(frame.height*5/7))
             let xCoord = Int.random(in: Int(frame.width)*1/16 ..< Int(frame.width)*15/16)
             
-            let myFood = SKSpriteNode(imageNamed: "Circle")
+            let myFood = SKSpriteNode(imageNamed: "Sandvich")
             myFood.name = String("food")
             myFood.size = CGSize(width: Int(frame.size.width)/16+1, height: Int(frame.size.width)/16+1)
             myFood.position = CGPoint(x: xCoord, y: yCoord)
-            myFood.drawBorder(color: .green, width: 1)
+            //myFood.drawBorder(color: .green, width: 1)
             addChild(myFood)
             collisionArray.insert(myFood, at: 0)
         }
@@ -266,6 +274,21 @@ class GameScene: SKScene
         }
         return empty
     }
+    func checkEnemyEmpty() -> Bool
+    {
+        var empty = true
+        if(collisionArray.count > 0)
+        {
+            for i in 0...collisionArray.count - 1
+            {
+                if(collisionArray[i].name == "enemy")
+                {
+                    empty = false
+                }
+            }
+        }
+        return empty
+    }
     
     func makeNotifyBox()
     {
@@ -277,7 +300,7 @@ class GameScene: SKScene
         notificationBox.font = UIFont.boldSystemFont(ofSize: notifySize*3/4)
         notificationBox.adjustsFontSizeToFitWidth = true
         notificationBox.minimumScaleFactor = 0.02
-        notificationBox.numberOfLines = 0 // or 1
+        notificationBox.numberOfLines = 1 // or 1
         
         notificationBox.textAlignment = .center
         var myInset = 10
@@ -287,7 +310,7 @@ class GameScene: SKScene
         notificationBox.layer.cornerRadius = 0
         notificationBox.backgroundColor = UIColor.white
         
-        let notifyBorder = SKSpriteNode(imageNamed: "Circle")
+        let notifyBorder = SKSpriteNode(imageNamed: "UpArrow")
         notifyBorder.size = CGSize(width: frame.size.width, height: frame.size.height/8)
         notifyBorder.position = CGPoint(x: frame.midX, y: frame.size.height * 15 / 16) // + CGFloat(myInset))
         notifyBorder.drawBorder(color: UIColor.purple, width: 1)
@@ -298,6 +321,12 @@ class GameScene: SKScene
         
         
         self.view!.addSubview(notificationBox)
+    }
+    func makeHPBar()
+    {
+        hpBar.frame = CGRect(x: Int(frame.width*2/32), y: Int(frame.size.height*1/64), width: Int(frame.width/4), height: Int(frame.width/24))
+        hpBar.backgroundColor = UIColor.green
+        self.view!.addSubview(hpBar)
     }
     
     func makeDPad()
@@ -438,7 +467,7 @@ class GameScene: SKScene
         aButton.layer.cornerRadius = aButton.frame.width/2
         aButton.center.x = frame.size.width*0.75 + buttonSpacing
         aButton.center.y = frame.size.height*0.8
-        aButton.addTarget(self, action: #selector(aButtonAction), for: .touchUpInside)
+        aButton.addTarget(self, action: #selector(aButtonAction), for: .touchDown)
         
         self.view!.addSubview(aButton)
         
@@ -453,8 +482,9 @@ class GameScene: SKScene
         bButton.layer.cornerRadius = aButton.frame.width/2
         bButton.center.x = frame.size.width*0.75 - buttonSpacing*1/4
         bButton.center.y = frame.size.height*0.8 + buttonSpacing
-        bButton.addTarget(self, action: #selector(bButtonAction), for: .touchUpInside)
-        
+        bButton.addTarget(self, action: #selector(bButtonAction), for: [.touchDown])
+        bButton.addTarget(self, action: #selector(bButtonCancel), for: [.touchUpInside])
+
         self.view!.addSubview(bButton)
     }
     
@@ -469,7 +499,7 @@ class GameScene: SKScene
         makeFood()
         
         // Initialize Main Character
-        circle = SKSpriteNode(imageNamed: "UpArrow")
+        circle = SKSpriteNode(imageNamed: "Pootis")
         circle.size = CGSize(width: frame.size.width/16, height: frame.size.width/16)
         circle.position = CGPoint(x: frame.midX, y: frame.midY*1.625)
         //circle.drawBorder(color: UIColor.black, width: 1)
@@ -477,11 +507,14 @@ class GameScene: SKScene
         
         
         makeNotifyBox()
+        makeHPBar()
         makeDPad()
         
-        timer = Timer.scheduledTimer(timeInterval: 0.002, target: self, selector: #selector(updatePosition), userInfo: nil, repeats: true)
-
+        timer = Timer.scheduledTimer(timeInterval: updateRate, target: self, selector: #selector(updatePosition), userInfo: nil, repeats: true)
+        bulletTimer = Timer.scheduledTimer(timeInterval: updateRate*1/2, target: self, selector: #selector(updateBulletPos), userInfo: nil, repeats: true)
     }
+    
+    
     
     @objc func aButtonAction()
     {
@@ -489,7 +522,158 @@ class GameScene: SKScene
     }
     @objc func bButtonAction()
     {
-        
+        notificationBox.text = "PEW!"
+        shoot()
+    }
+    @objc func bButtonCancel()
+    {
+        //updateRate = 0.002
+    }
+    
+    @objc func shoot()
+    {
+        bullet = SKSpriteNode(imageNamed: "crossBolt")
+        bullet.size = CGSize(width: frame.size.width/16, height: frame.size.width/16)
+        bullet.position = CGPoint(x: circle.position.x, y: circle.position.y)
+        bullet.zRotation = circle.zRotation + CGFloat.pi * -3/4
+        addChild(bullet)
+        bulletArray.insert(bullet, at: 0)
+        bulletDirectionArray.insert(currentDirection, at: 0)
+    }
+    @objc func updateBulletPos()
+    {
+        if(!bulletArray.isEmpty)
+        {
+            for i in 0...bulletArray.count-1
+            {
+                if(bulletDirectionArray[i] == "right")
+                {
+                    bulletArray[i].position.x += 1
+                    if(bulletArray[i].position.x > frame.size.width + frame.size.width/16)
+                    {
+                        bulletArray[i].removeFromParent()
+                        bulletArray.remove(at: i)
+                        bulletDirectionArray.remove(at: i)
+                        break
+                    }
+                }
+                if(bulletDirectionArray[i] == "left")
+                {
+                    bulletArray[i].position.x -= 1
+                    if(bulletArray[i].position.x < 0 - frame.size.width/16)
+                    {
+                        bulletArray[i].removeFromParent()
+                        bulletArray.remove(at: i)
+                        bulletDirectionArray.remove(at: i)
+                        break
+                    }
+                }
+                if(bulletDirectionArray[i] == "up")
+                {
+                    bulletArray[i].position.y += 1
+                    if(bulletArray[i].position.y > frame.size.height + frame.size.height/16)
+                    {
+                        bulletArray[i].removeFromParent()
+                        bulletArray.remove(at: i)
+                        bulletDirectionArray.remove(at: i)
+                        break
+                    }
+                }
+                if(bulletDirectionArray[i] == "down")
+                {
+                    bulletArray[i].position.y -= 1
+                    if(bulletArray[i].position.y < 0 - frame.size.height/16)
+                    {
+                        bulletArray[i].removeFromParent()
+                        bulletArray.remove(at: i)
+                        bulletDirectionArray.remove(at: i)
+                        break
+                    }
+                }
+            }
+        }
+        if(!collisionArray.isEmpty && !bulletArray.isEmpty)
+        {
+            outerLoop: for i in 0...collisionArray.count - 1
+            {
+                for j in 0...bulletArray.count - 1
+                {
+                    if(collisionArray[i].name == "enemy")
+                    {
+                        if(bulletArray[j].intersects(collisionArray[i]))
+                        {
+                            notificationBox.text = "BOOM. ENEMY DESTROYED."
+                            collisionArray[i].removeFromParent()
+                            collisionArray[i].removeAllActions()
+                            collisionArray.remove(at: i)
+                            bulletArray[j].removeFromParent()
+                            bulletArray.remove(at: j)
+                            bulletDirectionArray.remove(at: j)
+                            break outerLoop
+                        }
+                    }
+                    if(collisionArray[i].name == "wall")
+                    {
+                        if(bulletArray[j].intersects(collisionArray[i]))
+                        {
+                            notificationBox.text = "You shot a wall. Good job."
+                            bulletArray[j].removeFromParent()
+                            bulletArray.remove(at: j)
+                            bulletDirectionArray.remove(at: j)
+                            break outerLoop
+                        }
+                    }
+                    if(collisionArray[i].name == "notifyBox")
+                    {
+                        if(bulletArray[j].intersects(collisionArray[i]))
+                        {
+                            notificationBox.text = "Ow. Stop shooting me."
+                            bulletArray[j].removeFromParent()
+                            bulletArray.remove(at: j)
+                            bulletDirectionArray.remove(at: j)
+                            break outerLoop
+                        }
+                    }
+                    if(collisionArray[i].name == "food")
+                    {
+                        if(bulletArray[j].intersects(collisionArray[i]))
+                        {
+                            notificationBox.text = "LONG RANGE FOOD GRAB!"
+                            collisionArray[i].removeFromParent()
+                            collisionArray[i].removeAllActions()
+                            collisionArray.remove(at: i)
+                            bulletArray[j].removeFromParent()
+                            bulletArray.remove(at: j)
+                            bulletDirectionArray.remove(at: j)
+                            break outerLoop
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    @objc func increaseHP()
+    {
+        if(Int(hpBar.frame.width) >= Int(frame.width*13/16))
+        {
+        notificationBox.text = "Max HP!!!"
+        }
+        else
+        {
+        hpBar.frame = CGRect(x: Int(frame.width*2/32), y: Int(frame.size.height*1/64), width: Int(hpBar.frame.width) + Int(frame.width/16), height: Int(frame.width/24))
+        }
+    }
+    @objc func decreaseHP()
+    {
+        if(Int(hpBar.frame.width) >= Int(frame.width*1/16))
+        {
+        hpBar.frame = CGRect(x: Int(frame.width*2/32), y: Int(frame.size.height*1/64), width: Int(hpBar.frame.width) - Int(frame.width/16), height: Int(frame.width/24))
+        }
+        if(Int(hpBar.frame.width) <= Int(frame.width*1/16))
+        {
+        notificationBox.text = "You're out of HP!!!"
+        }
     }
     
     @objc func checkForNPCOrLoot()
@@ -498,6 +682,10 @@ class GameScene: SKScene
         {
             print("You encountered an \(currentEncounter) \(currentDirection)")
             notificationBox.text = "You encountered an \(currentEncounter) \(currentDirection)."
+            if(currentEncounter == "enemy")
+            {
+                decreaseHP()
+            }
         }
         else
         {
@@ -511,6 +699,10 @@ class GameScene: SKScene
         if(checkFoodEmpty())
         {
             makeFood()
+        }
+        if(checkEnemyEmpty())
+        {
+            makeEnemies()
         }
         if(goingUp)
         {
@@ -535,6 +727,7 @@ class GameScene: SKScene
                                 collisionArray[i].removeAllActions()
                                 collisionArray.remove(at: i)
                                 notificationBox.text = "NOM NOM NOM..."
+                                increaseHP()
                                 break
                             }
                             else
@@ -549,17 +742,6 @@ class GameScene: SKScene
             if(!collisionDetected && circle.position.y + circle.size.height/2 < frame.height)
             {
                 circle.position.y += 1
-//                if(!goingLeft && !goingRight)
-//                {
-//                    if(Int(circle.position.y)%2 == 1)//(circle.texture!.name == "Up")
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "UpBetween")
-//                    }
-//                    else
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "Up")
-//                    }
-//                }
             }
         }
         if(goingDown)
@@ -585,6 +767,7 @@ class GameScene: SKScene
                                 collisionArray[i].removeAllActions()
                                 collisionArray.remove(at: i)
                                 notificationBox.text = "NOM NOM NOM..."
+                                increaseHP()
                                 break
                             }
                             else
@@ -599,17 +782,6 @@ class GameScene: SKScene
             if(!collisionDetected && circle.position.y - circle.size.height/2 > 0)
             {
                 circle.position.y -= 1
-//                if(!goingLeft && !goingRight)
-//                {
-//                    if(Int(circle.position.y)%2 == 1)//(circle.texture!.name == "Down")
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "DownBetween")
-//                    }
-//                    else
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "Down")
-//                    }
-//                }
             }
         }
         if(goingLeft)
@@ -635,6 +807,7 @@ class GameScene: SKScene
                                 collisionArray[i].removeAllActions()
                                 collisionArray.remove(at: i)
                                 notificationBox.text = "NOM NOM NOM..."
+                                increaseHP()
                                 break
                             }
                             else
@@ -649,17 +822,6 @@ class GameScene: SKScene
             if(!collisionDetected && circle.position.x - circle.size.width/2 > 0)
             {
                 circle.position.x -= 1
-//                if(!goingUp && !goingDown)
-//                {
-//                    if(Int(circle.position.x)%2 == 1)//(circle.texture!.name == "Left")
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "LeftBetween")
-//                    }
-//                    else
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "Left")
-//                    }
-//                }
             }
         }
         if(goingRight)
@@ -685,6 +847,7 @@ class GameScene: SKScene
                                 collisionArray[i].removeAllActions()
                                 collisionArray.remove(at: i)
                                 notificationBox.text = "NOM NOM NOM..."
+                                increaseHP()
                                 break
                             }
                             else
@@ -699,17 +862,6 @@ class GameScene: SKScene
             if(!collisionDetected && circle.position.x + circle.size.width/2 < frame.width)
             {
                 circle.position.x += 1
-//                if(!goingUp && !goingDown)
-//                {
-//                    if(Int(circle.position.x)%2 == 1)//(circle.texture!.name == "Right")
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "RightBetween")
-//                    }
-//                    else
-//                    {
-//                        circle.texture = SKTexture(imageNamed: "Right")
-//                    }
-//                }
             }
         }
     }

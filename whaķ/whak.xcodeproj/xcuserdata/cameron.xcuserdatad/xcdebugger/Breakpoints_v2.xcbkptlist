@@ -10,11 +10,11 @@
             ignoreCount = "0"
             continueAfterRunningActions = "No"
             filePath = "whak&#x327;/Scenes/GameScene.swift"
-            timestampString = "574205275.2685291"
+            timestampString = "574277924.60585"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "511"
-            endingLineNumber = "511"
+            startingLineNumber = "699"
+            endingLineNumber = "699"
             landmarkName = "updatePosition()"
             landmarkType = "7">
          </BreakpointContent>
